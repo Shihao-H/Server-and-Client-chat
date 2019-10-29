@@ -50,8 +50,7 @@ class Chat
 void Chat::client()
 {
     
-    //create a message buffer
-//    char msg[1500];
+    //create buffers
     
     char recv_buffer[1000];
     char decode_buffer[141];
