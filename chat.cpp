@@ -78,27 +78,17 @@ void Chat::client()
         exit(0);
     }
     cout << "Connected to the server!" << endl;
-//    int bytesRead, bytesWritten = 0;
-//    struct timeval start1, end1;
-//    gettimeofday(&start1, NULL);
     while(1)
     {
         cout << "You: ";
         string data;
         data = this->readIn();
-//        getline(cin, data);
         memset(&input_buffer, 0, sizeof(input_buffer));//clear the buffer
         memset(&encode_buffer, 0, sizeof(encode_buffer));
         
         strcpy(input_buffer, data.c_str());
         
         this->encode(input_buffer,encode_buffer);
-//        if(data == "exit")
-//        {
-//            send(clientSd, (char*)&msg, strlen(msg), 0);
-//            break;
-//        }
-//        send(clientSd, (char*)&encode_buffer, strlen(encode_buffer), 0);
         send(clientSd, encode_buffer, sizeof(encode_buffer), 0);
         
         cout << "Awaiting server response..." << endl;
@@ -106,7 +96,6 @@ void Chat::client()
         memset(&recv_buffer, 0, sizeof(recv_buffer));//clear the buffer
         memset(&decode_buffer, 0, sizeof(decode_buffer));
         
-//        recv(clientSd, (char*)&recv_buffer, sizeof(recv_buffer), 0);
         recv(clientSd, recv_buffer, sizeof(recv_buffer), 0);
 
         int result=this->decode(recv_buffer,decode_buffer);
@@ -114,21 +103,8 @@ void Chat::client()
         {
             exit(0);
         }
-//        if(!strcmp(msg, "exit"))
-//        {
-//            cout << "Server has quit the session" << endl;
-//            break;
-//        }
         cout << "Friend: " << decode_buffer << endl;
     }
-//    gettimeofday(&end1, NULL);
-//    close(clientSd);
-//    cout << "********Session********" << endl;
-//    cout << "Bytes written: " << bytesWritten <<
-//    " Bytes read: " << bytesRead << endl;
-//    cout << "Elapsed time: " << (end1.tv_sec- start1.tv_sec)
-//      << " secs" << endl;
-//    cout << "Connection closed" << endl;
     
     
 }
@@ -137,9 +113,7 @@ void Chat::client()
 
 void Chat::server()
 {
-   //buffer to send and receive messages with
-//    char msg[1500];
-    
+
     char recv_buffer[1000];
     char decode_buffer[141];
     char input_buffer[141];
@@ -191,60 +165,29 @@ void Chat::server()
        exit(1);
    }
    cout << "Found a friend! You receive first." << endl;
-   //lets keep track of the session time
-//   struct timeval start1, end1;
-//   gettimeofday(&start1, NULL);
-   //also keep track of the amount of data sent as well
 
    while(1)
    {
        //receive a message from the client (listen)
        cout << "Awaiting client response..." << endl;
-//       memset(&msg, 0, sizeof(msg));//clear the buffer
        memset(&recv_buffer, 0, sizeof(recv_buffer));
        memset(&decode_buffer, 0, sizeof(decode_buffer));
        
-       
-//       recv(newSd, (char*)&recv_buffer, sizeof(recv_buffer), 0);
        recv(newSd, recv_buffer, sizeof(recv_buffer), 0);
        this->decode(recv_buffer,decode_buffer);
-       
-//       if(!strcmp(msg, "exit"))
-//       {
-//           cout << "Client has quit the session" << endl;
-//           break;
-//       }
        
        cout << "Friend: " << decode_buffer << endl;
        cout << "You: ";
        string data;
-//       getline(cin, data);
        data = this->readIn();
        memset(&input_buffer, 0, sizeof(input_buffer)); //clear the buffer
        memset(&encode_buffer, 0, sizeof(encode_buffer));
        strcpy(input_buffer, data.c_str());
        
        this->encode(input_buffer,encode_buffer);
-//       if(data == "exit")
-//       {
-//           //send to the client that server has closed the connection
-//           send(newSd, (char*)&msg, strlen(msg), 0);
-//           break;
-//       }
        //send the message to client
-//       send(newSd, (char*)&encode_buffer, strlen(encode_buffer), 0);
        send(newSd, encode_buffer, sizeof(encode_buffer), 0);
-   }
-   //we need to close the socket descriptors after we're all done
-//   gettimeofday(&end1, NULL);
-//   close(newSd);
-//   close(serverSd);
-//   cout << "********Session********" << endl;
-//   cout << "Bytes written: " << bytesWritten << " Bytes read: " << bytesRead << endl;
-//   cout << "Elapsed time: " << (end1.tv_sec - start1.tv_sec)
-//       << " secs" << endl;
-//   cout << "Connection closed..." << endl;
-    
+   }    
 }
 
 void Chat::help()
