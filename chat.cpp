@@ -36,13 +36,14 @@ class Chat
         bool isNumber(const string&);
         bool isIP(string);
         string readIn();
-        void encode(char*, char*);
+        void encode(char*, char*, int);
         int decode(char*, char*);
     
     
     private:
         int port;
         char* IP;
+        short version=457;
     
 };
 
@@ -50,14 +51,8 @@ class Chat
 void Chat::client()
 {
     
-    //create buffers
-    
-    char recv_buffer[1000];
-    char decode_buffer[141];
-    char input_buffer[141];
-    char encode_buffer[144];
-    
-    
+    //create a message buffer
+   char msg[150];
     
     //setup a socket and connection tools
     struct hostent* host = gethostbyname(this->IP);
@@ -68,6 +63,7 @@ void Chat::client()
         inet_addr(inet_ntoa(*(struct in_addr*)*host->h_addr_list));
     sendSockAddr.sin_port = htons(this->port);
     int clientSd = socket(AF_INET, SOCK_STREAM, 0);
+    cout << "Connecting to server... ";
     //try to connect...
     int status = connect(clientSd,
                          (sockaddr*) &sendSockAddr, sizeof(sendSockAddr));
@@ -76,49 +72,37 @@ void Chat::client()
         cout<<"Error connecting to socket!"<<endl;
         exit(0);
     }
-    cout << "Connected to the server!" << endl;
-    while(1)
+    cout << "Connected!" << endl;
+    cout << "Connected to a friend! You send first." << endl;
+    while(true)
     {
         cout << "You: ";
         string data;
         data = this->readIn();
-        memset(&input_buffer, 0, sizeof(input_buffer));//clear the buffer
-        memset(&encode_buffer, 0, sizeof(encode_buffer));
         
-        strcpy(input_buffer, data.c_str());
+        memset(&msg, 0, sizeof(msg));
         
-        this->encode(input_buffer,encode_buffer);
-        send(clientSd, encode_buffer, sizeof(encode_buffer), 0);
-        
-        cout << "Awaiting server response..." << endl;
-        
-        memset(&recv_buffer, 0, sizeof(recv_buffer));//clear the buffer
-        memset(&decode_buffer, 0, sizeof(decode_buffer));
-        
-        recv(clientSd, recv_buffer, sizeof(recv_buffer), 0);
+        uint16_t version_unit2 = ntohs(this->version);
+        uint16_t message_unit2 = ntohs(data.length());
+        memcpy((char*)&msg[0], &version_unit2, sizeof(version_unit2));
+        memcpy((char*)&msg[2], &message_unit2, sizeof(message_unit2));
+        memcpy((char*)&msg[4], data.c_str(), strlen(data.c_str()));
 
-        int result=this->decode(recv_buffer,decode_buffer);
-        if(result!=1)
-        {
-            exit(0);
-        }
-        cout << "Friend: " << decode_buffer << endl;
-    }
-    
-    
+        send(clientSd, (char*)&msg, data.length()+4, 0);
+        
+        memset(&msg, 0, sizeof(msg));//clear the buffer
+        recv(clientSd, (char*)&msg, sizeof(msg), 0);
+
+        cout << "Friend: " << (char*)&msg[4] << endl;
+    }   
 }
 
 
 
 void Chat::server()
 {
-
-    char recv_buffer[1000];
-    char decode_buffer[141];
-    char input_buffer[141];
-    char encode_buffer[144];
-    
-    
+   //buffer to send and receive messages with
+   char msg[150];
     random_device seeder;
     mt19937 engine(seeder());
     uniform_int_distribution<int> dist(0, 65535);
@@ -148,7 +132,7 @@ void Chat::server()
        exit(0);
    }
    cout << "Welcome to Chat!" << endl;
-   cout << "Waiting for a connection on port " << ServerPort << endl;
+   cout << "Waiting for a connection on 127.0.0.1 port " << ServerPort << endl;
    //listen for up to 5 requests at a time
    listen(serverSd, 5);
    //receive a request from client using accept
@@ -164,29 +148,25 @@ void Chat::server()
        exit(1);
    }
    cout << "Found a friend! You receive first." << endl;
-
-   while(1)
+   while(true)
    {
        //receive a message from the client (listen)
-       cout << "Awaiting client response..." << endl;
-       memset(&recv_buffer, 0, sizeof(recv_buffer));
-       memset(&decode_buffer, 0, sizeof(decode_buffer));
-       
-       recv(newSd, recv_buffer, sizeof(recv_buffer), 0);
-       this->decode(recv_buffer,decode_buffer);
-       
-       cout << "Friend: " << decode_buffer << endl;
+       memset(&msg, 0, sizeof(msg));//clear the buffer
+       recv(newSd, (char*)&msg, sizeof(msg), 0);       
+       cout << "Friend: " << (char*)&msg[4]<< endl;
        cout << "You: ";
        string data;
        data = this->readIn();
-       memset(&input_buffer, 0, sizeof(input_buffer)); //clear the buffer
-       memset(&encode_buffer, 0, sizeof(encode_buffer));
-       strcpy(input_buffer, data.c_str());
+       memset(&msg, 0, sizeof(msg));
        
-       this->encode(input_buffer,encode_buffer);
-       //send the message to client
-       send(newSd, encode_buffer, sizeof(encode_buffer), 0);
-   }    
+        uint16_t version_unit = htons(this->version);
+        uint16_t message_unit = htons(data.length());
+        memcpy((char*)&msg[0], &version_unit, sizeof(version_unit));
+        memcpy((char*)&msg[2], &message_unit, sizeof(message_unit));
+        memcpy((char*)&msg[4], data.c_str(), strlen(data.c_str()));
+        send(newSd, (char*)&msg,  data.length()+4, 0);
+       
+   }
 }
 
 void Chat::help()
@@ -206,7 +186,6 @@ void Chat::help()
 void Chat::setPort(int port)
 {
     this->port=port;
-    cout<<"Port "<<this->port<<endl;
 }
 
 void Chat::setIP(char* IP)
@@ -289,49 +268,6 @@ string Chat::readIn()
     return temp;
 }
 
-void Chat::encode(char* input_buffer, char* encode_buffer)
-{
-    uint16_t version_num = 457;
-    uint16_t length = strlen(input_buffer);
-
-    // First put version into encode_buffer
-    memcpy(encode_buffer, &version_num, 2);
-
-    // Next copy length into
-    memcpy(encode_buffer + 2, &length, 2);
-
-    // Last copy actual message, excluding the terminating 0
-    memcpy(encode_buffer + 4, input_buffer, length);
-}
-
-int Chat::decode(char* recv_buffer, char* decode_buffer)
-{
-    uint16_t version_num = 0;
-    memcpy(&version_num, recv_buffer, 2);
-    if (version_num != 457)
-    {
-        cout << "Error: Recevied invalid version number. Program will now terminate." << endl;
-        return 0;
-    }
-
-    // Next decode the length
-    uint16_t length = 0;
-    memcpy(&length, recv_buffer+2, 2);
-    if (length < 0 || length > 140)
-    {
-        cout << "Error: Invalid length received. Program will now terminate." << endl;
-        return 0;
-    }
-
-    // Last decode the message
-    memcpy(decode_buffer, recv_buffer+4, length);
-//    decode_buffer[length] = '\0'; // Terminate the string with 0 for security
-    
-    return 1;
-
-}
-
-
 //========================================================================
 
 int main(int argc, char** argv)
@@ -367,7 +303,7 @@ int main(int argc, char** argv)
                     }
                     catch (exception &e)
                     {
-                        cerr<<"Invalid port format! It should be allnumbers."<< endl;
+                        cerr<<"Invalid port format! It should be all numbers."<< endl;
                         exit(0);
                     }
                     chat.setPort(port);
